@@ -25,6 +25,13 @@ HOST = os.environ.get('FLASK_HOST', '0.0.0.0')
 PORT = int(os.environ.get('FLASK_PORT', '5000'))
 DEBUG = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
 
+# Selectors for OFD receipt content (priority order)
+OFD_CONTENT_SELECTORS = [
+    '#fido_cheque_container',  # Main receipt container (HTML-encoded)
+    '.check_ctn',              # Check container
+    '.js__cheque_fido_constructor',  # Alternative container
+]
+
 # Advertising/tracking URL patterns to remove
 TRACKING_URL_PATTERNS = [
     r'urlstats\.platformaofd\.ru',
@@ -42,17 +49,6 @@ KEEP_URL_PATTERNS = [
     r'/web/noauth/cheque/pdf',
     r'nalog\.gov\.ru',
     r'platformaofd\.ru/web/noauth/cheque/search',
-]
-
-# CSS selectors for advertising blocks to remove
-AD_SELECTORS = [
-    '[id*="advertising"]',
-    '[id*="banner"]',
-    '[class*="banner"]',
-    '[class*="promo"]',
-    '[id*="jivo"]',
-    '[class*="voucher"]',
-    'noscript',
 ]
 
 
@@ -180,6 +176,24 @@ def health():
     return jsonify({'status': 'healthy'}), 200
 
 
+def extract_ofd_content(soup):
+    """Extract OFD receipt content from specific containers."""
+    # Try to find OFD-specific content containers
+    for selector in OFD_CONTENT_SELECTORS:
+        container = soup.select_one(selector)
+        if container:
+            # For fido_cheque_container, content is HTML-encoded text
+            if 'fido' in selector:
+                inner_html = container.get_text()
+                if inner_html and len(inner_html) > 100:
+                    # Decode HTML entities and parse
+                    decoded = html.unescape(inner_html)
+                    return BeautifulSoup(decoded, 'lxml')
+            else:
+                return container
+    return None
+
+
 @app.route('/extract-text', methods=['POST'])
 @requires_auth
 def extract_text():
@@ -216,8 +230,12 @@ def extract_text():
         # Extract important links before removing elements
         important_links = extract_important_links(soup)
 
-        # Remove advertising blocks
-        soup = remove_advertising_blocks(soup)
+        # Try to extract OFD-specific content first
+        content_soup = extract_ofd_content(soup)
+
+        if content_soup:
+            logger.info("Found OFD receipt container")
+            soup = content_soup
 
         # Remove unwanted tags
         soup = remove_unwanted_tags(soup)

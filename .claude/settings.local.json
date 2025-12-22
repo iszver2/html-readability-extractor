@@ -22,7 +22,12 @@
       "Bash(docker stop:*)",
       "Bash(docker rm:*)",
       "Bash(docker logs:*)",
-      "Bash(git commit -m \"$\\(cat <<''EOF''\nIteration 1: Improve HTML cleaning for OFD receipts\n\n- Add inscriptis for table-to-text conversion with structure\n- Remove advertising blocks by CSS selectors\n- Filter tracking URLs \\(keep PDF and FNS links\\)\n- Remove HTML comments\n- Clean noise patterns \\(promo text, decorative elements\\)\n- Extract and preserve important links \\(PDF, FNS verification\\)\n- Decode HTML entities\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nIteration 1: Improve HTML cleaning for OFD receipts\n\n- Add inscriptis for table-to-text conversion with structure\n- Remove advertising blocks by CSS selectors\n- Filter tracking URLs \\(keep PDF and FNS links\\)\n- Remove HTML comments\n- Clean noise patterns \\(promo text, decorative elements\\)\n- Extract and preserve important links \\(PDF, FNS verification\\)\n- Decode HTML entities\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(pip install:*)",
+      "Bash(python:*)",
+      "Bash(python3:*)",
+      "Bash(pip3 install:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nIteration 2: Extract OFD receipt from specific container\n\n- Add OFD_CONTENT_SELECTORS to find #fido_cheque_container\n- Decode HTML-encoded content inside the container\n- Reduced output from 77k to 3k characters \\(26x reduction\\)\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
     ]
   }
 }
