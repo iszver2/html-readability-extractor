@@ -170,8 +170,8 @@ def test_whitespace_normalization(client, auth_headers):
     data = json.loads(response.data)
     # Multiple spaces should be normalized to single spaces
     assert '   ' not in data['text']
-    # Newlines should be normalized to spaces
-    assert '\n' not in data['text']
+    # Excessive newlines should be collapsed (but single newlines preserved for structure)
+    assert '\n\n\n' not in data['text']
 
 
 def test_complex_html_extraction(client, auth_headers):
