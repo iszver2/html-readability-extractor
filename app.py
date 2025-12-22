@@ -127,8 +127,8 @@ def extract_important_links(soup):
 
     for a in soup.find_all('a', href=True):
         href = a['href']
-        # PDF link
-        if '/cheque/pdf' in href or '.pdf' in href:
+        # PDF link - prioritize receipt PDF over oferta
+        if '/cheque/pdf' in href and 'oferta' not in href.lower():
             links['pdf'] = href
         # FNS verification
         elif 'nalog.gov.ru' in href:
@@ -150,23 +150,31 @@ def normalize_whitespace(text):
 
 def clean_extracted_text(text):
     """Additional cleaning of extracted text."""
-    # Remove common noise patterns
+    # Remove common noise patterns (promotional/advertising text)
     noise_patterns = [
-        r'Вам подарки за проведенную оплату!',
-        r'Вам доступен \(\d+\) подарок.*?!',
-        r'Подарок за оплату',
-        r'Выбрать подарок',
-        r'Забрать',
-        r'Активировать',
-        r'Ваш подарок за покупку неактивен',
+        r'Вам подарки за проведенную оплату!?',
+        r'Вам доступен \(\d+\) подарок за покупку!?',
+        r'Подарок за оплату\s*',
+        r'Выбрать подарок\s*',
+        r'Забрать\s*',
+        r'Активировать\s*',
+        r'Ваш подарок за покупку неактивен\s*',
         r'волна',  # decorative image alt text
         r'Картинка',  # decorative image alt text
+        r'⭐️[^⭐]*⭐️',  # Emoji-wrapped promo text
     ]
 
     for pattern in noise_patterns:
         text = re.sub(pattern, '', text, flags=re.IGNORECASE)
 
-    return text
+    # Normalize whitespace: collapse multiple spaces/newlines
+    text = re.sub(r'\n{2,}', '\n', text)
+    text = re.sub(r' {2,}', ' ', text)
+
+    # Remove leading/trailing whitespace from each line and filter empty
+    lines = [line.strip() for line in text.split('\n') if line.strip()]
+
+    return '\n'.join(lines)
 
 
 @app.route('/health', methods=['GET'])
