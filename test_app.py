@@ -1,5 +1,6 @@
 import pytest
 import json
+import base64
 from app import app
 
 
@@ -14,7 +15,6 @@ def client():
 @pytest.fixture
 def auth_headers():
     """Return basic auth headers with default credentials."""
-    import base64
     credentials = base64.b64encode(b'admin:password').decode('utf-8')
     return {'Authorization': f'Basic {credentials}'}
 
@@ -42,7 +42,6 @@ def test_extract_text_requires_authentication(client):
 
 def test_extract_text_with_wrong_credentials(client):
     """Test that extract-text endpoint returns 401 with wrong credentials."""
-    import base64
     credentials = base64.b64encode(b'wrong:credentials').decode('utf-8')
     headers = {'Authorization': f'Basic {credentials}'}
     
