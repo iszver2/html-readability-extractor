@@ -83,7 +83,7 @@ def extract_text():
     """Extract main content text from HTML."""
     try:
         # Get JSON data from request
-        data = request.get_json()
+        data = request.get_json(silent=True)
         
         if not data:
             logger.error("No JSON data provided")

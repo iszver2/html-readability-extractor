@@ -1,9 +1,10 @@
-FROM python:3.11-slim
+# Builder stage
+FROM python:3.11-slim as builder
 
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies for lxml
+# Install system dependencies for building lxml
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     gcc \
@@ -14,8 +15,24 @@ RUN apt-get update && \
 # Copy requirements first for better caching
 COPY requirements.txt .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Install Python dependencies to a temporary location
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+# Final stage
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install only runtime dependencies for lxml
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    libxml2 \
+    libxslt1.1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy installed packages from builder stage
+COPY --from=builder /install /usr/local
 
 # Copy application code
 COPY app.py .
