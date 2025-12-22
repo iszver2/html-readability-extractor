@@ -1,10 +1,12 @@
 import os
 import re
+import html
 import logging
 from flask import Flask, request, jsonify
 from functools import wraps
-from readability import Document
 from bs4 import BeautifulSoup
+from inscriptis import get_text
+from inscriptis.model.config import ParserConfig
 
 # Configure logging to stdout
 logging.basicConfig(
@@ -22,6 +24,36 @@ PASSWORD = os.environ.get('BASIC_AUTH_PASSWORD', 'password')
 HOST = os.environ.get('FLASK_HOST', '0.0.0.0')
 PORT = int(os.environ.get('FLASK_PORT', '5000'))
 DEBUG = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+
+# Advertising/tracking URL patterns to remove
+TRACKING_URL_PATTERNS = [
+    r'urlstats\.platformaofd\.ru',
+    r'share\.floctory\.com',
+    r'cdn1\.platformaofd\.ru/checkmarketing',
+    r'cdn1\.platformaofd\.ru/fido-constructor',
+    r'page\.link',
+    r'mc\.yandex\.ru',
+    r'jivosite\.com',
+    r'besteml\.com',
+]
+
+# Patterns for URLs to keep
+KEEP_URL_PATTERNS = [
+    r'/web/noauth/cheque/pdf',
+    r'nalog\.gov\.ru',
+    r'platformaofd\.ru/web/noauth/cheque/search',
+]
+
+# CSS selectors for advertising blocks to remove
+AD_SELECTORS = [
+    '[id*="advertising"]',
+    '[id*="banner"]',
+    '[class*="banner"]',
+    '[class*="promo"]',
+    '[id*="jivo"]',
+    '[class*="voucher"]',
+    'noscript',
+]
 
 
 def check_auth(username, password):
@@ -48,25 +80,96 @@ def requires_auth(f):
     return decorated
 
 
-def remove_unwanted_tags(html):
-    """Remove script, style, and other unwanted tags using BeautifulSoup."""
-    soup = BeautifulSoup(html, 'lxml')
-    
-    # Remove unwanted tags
-    unwanted_tags = ['script', 'style', 'meta', 'link', 'noscript', 'iframe']
+def remove_advertising_blocks(soup):
+    """Remove advertising and promotional blocks by CSS selectors."""
+    for selector in AD_SELECTORS:
+        for element in soup.select(selector):
+            element.decompose()
+    return soup
+
+
+def remove_unwanted_tags(soup):
+    """Remove script, style, and other unwanted tags."""
+    unwanted_tags = ['script', 'style', 'meta', 'link', 'noscript', 'iframe', 'svg', 'img']
     for tag in unwanted_tags:
         for element in soup.find_all(tag):
             element.decompose()
-    
-    return str(soup)
+    return soup
+
+
+def remove_html_comments(html_str):
+    """Remove HTML comments."""
+    return re.sub(r'<!--.*?-->', '', html_str, flags=re.DOTALL)
+
+
+def filter_urls(text):
+    """Remove tracking URLs but keep important ones (PDF, FNS)."""
+    lines = text.split('\n')
+    filtered_lines = []
+
+    for line in lines:
+        # Check if line contains a URL
+        url_match = re.search(r'https?://[^\s<>"]+', line)
+        if url_match:
+            url = url_match.group()
+            # Check if it's a tracking URL to remove
+            is_tracking = any(re.search(pattern, url) for pattern in TRACKING_URL_PATTERNS)
+            is_keep = any(re.search(pattern, url) for pattern in KEEP_URL_PATTERNS)
+
+            if is_tracking and not is_keep:
+                # Remove the URL from the line
+                line = re.sub(r'https?://[^\s<>"]+', '', line)
+
+        filtered_lines.append(line)
+
+    return '\n'.join(filtered_lines)
+
+
+def extract_important_links(soup):
+    """Extract important links (PDF, check verification) before processing."""
+    links = {}
+
+    for a in soup.find_all('a', href=True):
+        href = a['href']
+        # PDF link
+        if '/cheque/pdf' in href or '.pdf' in href:
+            links['pdf'] = href
+        # FNS verification
+        elif 'nalog.gov.ru' in href:
+            links['fns'] = href
+
+    return links
 
 
 def normalize_whitespace(text):
-    """Normalize whitespace in the extracted text."""
-    # Replace multiple whitespace characters with a single space
-    text = re.sub(r'\s+', ' ', text)
+    """Normalize whitespace while preserving structure."""
+    # Remove excessive blank lines (more than 2 consecutive)
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    # Remove trailing whitespace on each line
+    text = '\n'.join(line.rstrip() for line in text.split('\n'))
     # Remove leading/trailing whitespace
     text = text.strip()
+    return text
+
+
+def clean_extracted_text(text):
+    """Additional cleaning of extracted text."""
+    # Remove common noise patterns
+    noise_patterns = [
+        r'Вам подарки за проведенную оплату!',
+        r'Вам доступен \(\d+\) подарок.*?!',
+        r'Подарок за оплату',
+        r'Выбрать подарок',
+        r'Забрать',
+        r'Активировать',
+        r'Ваш подарок за покупку неактивен',
+        r'волна',  # decorative image alt text
+        r'Картинка',  # decorative image alt text
+    ]
+
+    for pattern in noise_patterns:
+        text = re.sub(pattern, '', text, flags=re.IGNORECASE)
+
     return text
 
 
@@ -84,47 +187,76 @@ def extract_text():
     try:
         # Get JSON data from request
         data = request.get_json(silent=True)
-        
+
         if not data:
             logger.error("No JSON data provided")
             return jsonify({'error': 'No JSON data provided'}), 400
-        
+
         if 'html' not in data:
             logger.error("Missing 'html' field in request")
             return jsonify({'error': "Missing 'html' field in request"}), 400
-        
+
         html_content = data['html']
-        
+
         if not html_content or not isinstance(html_content, str):
             logger.error("Invalid 'html' field")
             return jsonify({'error': "Invalid 'html' field"}), 400
-        
+
         logger.info(f"Processing HTML content from {request.remote_addr} (length: {len(html_content)})")
-        
-        # Use readability-lxml to extract main content
-        doc = Document(html_content)
-        readable_html = doc.summary()
-        
-        # Remove unwanted tags using BeautifulSoup
-        cleaned_html = remove_unwanted_tags(readable_html)
-        
-        # Extract text from HTML
-        soup = BeautifulSoup(cleaned_html, 'lxml')
-        text = soup.get_text()
-        
+
+        # Decode HTML entities in the input
+        html_content = html.unescape(html_content)
+
+        # Remove HTML comments first
+        html_content = remove_html_comments(html_content)
+
+        # Parse with BeautifulSoup
+        soup = BeautifulSoup(html_content, 'lxml')
+
+        # Extract important links before removing elements
+        important_links = extract_important_links(soup)
+
+        # Remove advertising blocks
+        soup = remove_advertising_blocks(soup)
+
+        # Remove unwanted tags
+        soup = remove_unwanted_tags(soup)
+
+        # Get cleaned HTML
+        cleaned_html = str(soup)
+
+        # Use inscriptis to convert HTML to text with table structure
+        config = ParserConfig(display_links=False, display_anchors=False)
+        text = get_text(cleaned_html, config)
+
+        # Filter out tracking URLs
+        text = filter_urls(text)
+
+        # Clean extracted text from noise
+        text = clean_extracted_text(text)
+
         # Normalize whitespace
-        normalized_text = normalize_whitespace(text)
-        
+        text = normalize_whitespace(text)
+
+        # Append important links at the end
+        if important_links:
+            text += '\n\n--- Ссылки ---'
+            if 'pdf' in important_links:
+                text += f'\nPDF чека: {important_links["pdf"]}'
+            if 'fns' in important_links:
+                text += f'\nПроверка ФНС: {important_links["fns"]}'
+
         # Calculate length
-        text_length = len(normalized_text)
-        
+        text_length = len(text)
+
         logger.info(f"Successfully extracted text (length: {text_length})")
-        
+
         return jsonify({
-            'text': normalized_text,
-            'length': text_length
+            'text': text,
+            'length': text_length,
+            'links': important_links
         }), 200
-        
+
     except Exception as e:
         logger.error(f"Error processing request: {str(e)}", exc_info=True)
         return jsonify({'error': f'Error processing request: {str(e)}'}), 500

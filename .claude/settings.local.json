@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh pr list:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr diff:*)",
+      "Bash(gh pr comment:*)",
+      "Bash(gh api:*)",
+      "Bash(gh pr ready:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(git pull:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(open:*)",
+      "Bash(gh run list:*)",
+      "Bash(docker pull:*)",
+      "Bash(docker run:*)",
+      "Bash(curl:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd multi-platform Docker build \\(amd64 + arm64\\)\n\nAdds QEMU and Buildx for building images that work natively\non both Intel and Apple Silicon Macs.\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push:*)",
+      "Bash(gh run watch:*)",
+      "Bash(docker stop:*)",
+      "Bash(docker rm:*)",
+      "Bash(docker logs:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nIteration 1: Improve HTML cleaning for OFD receipts\n\n- Add inscriptis for table-to-text conversion with structure\n- Remove advertising blocks by CSS selectors\n- Filter tracking URLs \\(keep PDF and FNS links\\)\n- Remove HTML comments\n- Clean noise patterns \\(promo text, decorative elements\\)\n- Extract and preserve important links \\(PDF, FNS verification\\)\n- Decode HTML entities\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
+    ]
+  }
+}
