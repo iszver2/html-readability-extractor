@@ -48,3 +48,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Test data
+example.ofd-page.json

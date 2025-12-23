@@ -121,7 +121,19 @@ def filter_urls(text):
     return '\n'.join(filtered_lines)
 
 
-def extract_important_links(soup):
+def make_absolute_url(href, base_url=''):
+    """Make a relative URL absolute."""
+    if not href.startswith('/'):
+        return href  # Already absolute
+    if base_url:
+        from urllib.parse import urlparse
+        parsed = urlparse(base_url)
+        return f"{parsed.scheme}://{parsed.netloc}{href}"
+    # Default to platformaofd.ru for OFD receipts
+    return f"https://lk.platformaofd.ru{href}"
+
+
+def extract_important_links(soup, base_url=''):
     """Extract important links (PDF, check verification) before processing."""
     links = {}
 
@@ -129,10 +141,10 @@ def extract_important_links(soup):
         href = a['href']
         # PDF link - prioritize receipt PDF over oferta
         if '/cheque/pdf' in href and 'oferta' not in href.lower():
-            links['pdf'] = href
-        # FNS verification
-        elif 'nalog.gov.ru' in href:
-            links['fns'] = href
+            links['pdf'] = make_absolute_url(href, base_url)
+        # OFD verification link with fn/fp/i parameters (not qrcode, not search - direct verification)
+        elif '/web/noauth/cheque' in href and ('fn=' in href or 'fp=' in href) and 'qrcode' not in href and 'search' not in href:
+            links['verification'] = make_absolute_url(href, base_url)
 
     return links
 
@@ -232,11 +244,14 @@ def extract_text():
         # Remove HTML comments first
         html_content = remove_html_comments(html_content)
 
+        # Get optional URL for making relative links absolute
+        base_url = data.get('url', '')
+
         # Parse with BeautifulSoup
         soup = BeautifulSoup(html_content, 'lxml')
 
         # Extract important links before removing elements
-        important_links = extract_important_links(soup)
+        important_links = extract_important_links(soup, base_url)
 
         # Try to extract OFD-specific content first
         content_soup = extract_ofd_content(soup)
@@ -269,8 +284,8 @@ def extract_text():
             text += '\n\n--- Ссылки ---'
             if 'pdf' in important_links:
                 text += f'\nPDF чека: {important_links["pdf"]}'
-            if 'fns' in important_links:
-                text += f'\nПроверка ФНС: {important_links["fns"]}'
+            if 'verification' in important_links:
+                text += f'\nПроверка чека: {important_links["verification"]}'
 
         # Calculate length
         text_length = len(text)
