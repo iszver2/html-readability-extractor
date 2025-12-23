@@ -24,6 +24,7 @@ PASSWORD = os.environ.get('BASIC_AUTH_PASSWORD', 'password')
 HOST = os.environ.get('FLASK_HOST', '0.0.0.0')
 PORT = int(os.environ.get('FLASK_PORT', '5000'))
 DEBUG = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+GIT_COMMIT = os.environ.get('GIT_COMMIT', 'unknown')
 
 # Selectors for OFD receipt content (priority order)
 OFD_CONTENT_SELECTORS = [
@@ -304,5 +305,5 @@ def extract_text():
 
 
 if __name__ == '__main__':
-    logger.info(f"Starting Flask application on {HOST}:{PORT} (debug={DEBUG})")
+    logger.info(f"Starting Flask application on {HOST}:{PORT} (debug={DEBUG}, commit={GIT_COMMIT})")
     app.run(host=HOST, port=PORT, debug=DEBUG)

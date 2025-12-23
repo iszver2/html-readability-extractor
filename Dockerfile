@@ -40,9 +40,13 @@ COPY app.py .
 # Expose port
 EXPOSE 5000
 
+# Build argument for git commit hash
+ARG GIT_COMMIT=unknown
+
 # Set environment variables
 ENV FLASK_HOST=0.0.0.0
 ENV FLASK_PORT=5000
+ENV GIT_COMMIT=${GIT_COMMIT}
 
 # Add healthcheck using Python (no curl needed)
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
