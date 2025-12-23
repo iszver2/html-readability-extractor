@@ -44,5 +44,9 @@ EXPOSE 5000
 ENV FLASK_HOST=0.0.0.0
 ENV FLASK_PORT=5000
 
+# Add healthcheck using Python (no curl needed)
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')" || exit 1
+
 # Run the application
 CMD ["python", "app.py"]
